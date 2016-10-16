@@ -1,15 +1,14 @@
-#include "Joystick.h"
+#include "HID-Project.h"
 
 #define B_ROW1 0
 #define B_ROW2 1
 #define B_HAT  2
 
-// Lookup table for jokstick angles. This Joystick API is really annoying...
-char angleMap[16] = {-1, -1, -1, 5, -1, -1, 7, 6, -1, 3, -1, 4, 1, 2, 8, -1};
+// Lookup table for jokstick angles.
+char angleMap[16] = {-1, -1, -1, 5, -1, -1, 7, 6, -1, 3, -1, 4, 1, 2, 0, -1};
 
 void setup() {  
-  //Serial.begin(115200);
-  Joystick.begin(false);
+  Gamepad.begin();
 
   for (char pin = 4; pin < 8; pin++) {
     pinMode(pin, INPUT);           // set pin to input
@@ -19,9 +18,6 @@ void setup() {
   digitalWrite(A0, LOW);
   digitalWrite(A1, LOW);
   digitalWrite(A2, LOW);
-
-  Serial.println("Started");
-  delay(1000);
 }
 
 void setRow(char row) {
@@ -30,35 +26,38 @@ void setRow(char row) {
   pinMode(A2, row == B_HAT  ? OUTPUT : INPUT);
 }
 
-void loop() {
-  // Handle the action buttons
-  for (char a = 0; a < 2; a++) {
-    setRow(a);
-
-    for (char b = 0; b < 4; b++) {
-      Joystick.setButton(a * 4 + b, digitalRead(4 + b) ? 0 : 1);
-      Serial.print(digitalRead(4 + b), HEX);
-    }
-    Serial.print(a, HEX);
-    Serial.print(" ");
-  }
-
-  // Handle the joy stick
+void setHat() {
+  /// Handle the joystick
   char hat = 0;
   setRow(B_HAT);
 
   for (char a = 0; a < 4; a++)
     hat = hat << 1 | digitalRead(4 + a);
 
-  hat = angleMap[hat];
-  if (hat > 0)
-    Joystick.setHatSwitch(0, hat * 45);
-  else
-    Joystick.setHatSwitch(0, -1);
-  
-  Serial.print(hat * 45, DEC);
+  Gamepad.dPad1(angleMap[hat] + 1);
+}
 
-  // Send the data to the computer
-  Serial.println();
-  Joystick.sendState();
+void setButtons() {
+  /// Handle the action buttons
+  for (char a = 0; a < 2; a++) {
+    setRow(a);
+
+    for (char b = 0; b < 4; b++) {
+      if (digitalRead(4 + b) == 0)
+        Gamepad.press(a * 4 + b + 1);
+    }
+  }
+}
+
+void loop() {
+  Gamepad.releaseAll();
+
+  // Set centers for things to ZSNES doesn't have a fit
+  Gamepad.xAxis(0xFF / 2);
+  Gamepad.yAxis(0xFF / 2);
+  
+  setButtons();
+  setHat();
+
+  Gamepad.write();
 }
